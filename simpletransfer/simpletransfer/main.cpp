@@ -1,6 +1,29 @@
 #include <WinSock2.h>
 #include <WS2tcpip.h>
 #include <iostream>
+#include <vector>
+
+DWORD WINAPI goshdarnthread(LPVOID arrr)
+{
+	SOCKET recvsock = (SOCKET)arrr;
+
+	std::cout << "THREAD!!!\n";
+
+	char buf[64];
+	memset(buf, 0, 64);
+
+	while (true)
+	{
+		int numbyt = recv(recvsock, buf, 64, 0);
+		if (numbyt > 0)
+		{
+			std::cout << "Bytes received! " << numbyt << " bytes!\n";
+			std::cout << buf << "\n";
+			memset(buf, 0, 64);
+
+		}
+	}
+}
 
 int main()
 {
@@ -46,29 +69,23 @@ int main()
 	char buf[64];
 	memset(buf, 0, 64);
 
-	SOCKET recvsock = INVALID_SOCKET;
+	SOCKET recvsockz = INVALID_SOCKET;
 	while (true)
 	{
 		int addrle = 0;
-		recvsock = accept(sock, NULL, NULL);
-		if (recvsock == INVALID_SOCKET)
+		recvsockz = accept(sock, NULL, NULL);
+		if (recvsockz == INVALID_SOCKET)
 		{
 			//std::cout << "noaccept\n";
 			continue;
 		}
 		else
-			break;
-	}
-
-	while (true)
-	{
-		int numbyt = recv(recvsock, buf, 64, 0);
-		if (numbyt > 0)
 		{
-			std::cout << "Bytes received! " << numbyt << " bytes!\n";
-			std::cout << buf << "\n";
-			memset(buf, 0, 64);
+			DWORD threadid;
+			CreateThread(NULL, 0, goshdarnthread, (LPVOID)recvsockz, 0, &threadid);
 
+			recvsockz = INVALID_SOCKET;
+			std::cout << "new connection\n";
 		}
 	}
 
