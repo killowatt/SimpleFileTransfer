@@ -1,7 +1,9 @@
 #include <WinSock2.h>
 #include <WS2tcpip.h>
 #include <iostream>
+#include <fstream>
 #include <string>
+#include <vector>
 
 int main()
 {
@@ -16,16 +18,20 @@ int main()
 		return 1;
 	}
 
+	std::cout << "what is ip\n";
+	std::string line;
+	std::getline(std::cin, line);
+
 
 	sockaddr_in sockad;
 	//sockad.sin_addr.s_addr = inet_addr("127.0.0.1");
-	inet_pton(AF_INET, "127.0.0.1", &sockad.sin_addr);
+	inet_pton(AF_INET, line.c_str(), &sockad.sin_addr);
 	//sockad.sin_addr.s_addr = INADDR_LOOPBACK;
 	sockad.sin_family = AF_INET;
 	sockad.sin_port = htons(27015);
 
-	SOCKET clientsock = socket(AF_INET, SOCK_STREAM, 0);
-	if (clientsock == INVALID_SOCKET)
+	SOCKET server = socket(AF_INET, SOCK_STREAM, 0);
+	if (server == INVALID_SOCKET)
 	{
 		std::cout << "damn\n";
 		return 1;
@@ -33,7 +39,7 @@ int main()
 
 	std::cout << "socket create\n";
 
-	int conneccc = connect(clientsock, (sockaddr*)&sockad, sizeof(sockad));
+	int conneccc = connect(server, (sockaddr*)&sockad, sizeof(sockad));
 	if (conneccc)
 	{
 		std::cout << "FAIL CONNEC!!\n";
@@ -43,21 +49,64 @@ int main()
 
 	std::cout << "connect\n";
 
-	std::string input;
-	while (std::getline(std::cin, input))
+	// old message code
+	//std::string input;
+	//while (std::getline(std::cin, input))
+	//{
+	//	if (input == "close")
+	//		break;
+
+	//	int sendr = send(server, input.c_str(), input.size(), 0);
+	//	if (sendr == SOCKET_ERROR)
+	//	{
+	//		std::cout << "WOE IS US\n";
+	//		return 5;
+	//	}
+	//}
+
+	std::ofstream output("received.mp4", std::ios::binary | std::ios::out | std::ios::trunc);
+	if (output.fail())
 	{
-		int sendr = send(clientsock, input.c_str(), input.size(), 0);
-		if (sendr == SOCKET_ERROR)
-		{
-			std::cout << "WOE IS US\n";
-			return 5;
-		}
+		std::cout << "couldn't open file\n";
+		return 0;
 	}
 
-	std::cout << "send\n";
+	const int BUFSIZE = 512;
+	char buf[BUFSIZE];
+	memset(buf, 0, BUFSIZE);
+
+	while (true)
+	{
+		int numbyt = recv(server, buf, BUFSIZE, 0);
+		if (numbyt > 0)
+		{
+			std::cout << "Bytes received! " << numbyt << " bytes!\n";
+			std::cout << buf << "\n";
+
+			output.write(buf, numbyt);
+
+			memset(buf, 0, BUFSIZE);
+
+		}
+		else if (numbyt == 0)
+		{
+			std::cout << "disconnect.\n";
+			break;
+		}
+		else if (numbyt == SOCKET_ERROR)
+		{
+			std::cout << "ERROR!! " << WSAGetLastError() << "\n";
+			break;
+		}
+	}
+	
+
+	output.close();
+
+	std::cout << "over\n";
 
 
-	closesocket(clientsock);
+	closesocket(server);
 
 	WSACleanup();
 

@@ -2,31 +2,73 @@
 #include <WS2tcpip.h>
 #include <iostream>
 #include <vector>
+#include <fstream>
+#include <string>
+
+
+std::vector<char> coolbytes;
 
 DWORD WINAPI goshdarnthread(LPVOID arrr)
 {
-	SOCKET recvsock = (SOCKET)arrr;
+	SOCKET client = (SOCKET)arrr;
+
+	sockaddr_in adds;
+	int len = sizeof(adds);
+	int sockget = getpeername(client, (sockaddr*)&adds, &len);
+
+	char ipadd[INET6_ADDRSTRLEN];
+	inet_ntop(AF_INET, &adds.sin_addr, ipadd, sizeof(ipadd));
 
 	std::cout << "THREAD!!!\n";
+	std::cout << "client @ " << ipadd << "\n";
 
-	char buf[64];
-	memset(buf, 0, 64);
 
-	while (true)
+	int sentbytes = 0;
+	int totalbytes = coolbytes.size();
+	while (sentbytes < totalbytes)
 	{
-		int numbyt = recv(recvsock, buf, 64, 0);
-		if (numbyt > 0)
+		int sendr = send(client, coolbytes.data() + sentbytes, coolbytes.size() - sentbytes, 0);
+		if (sendr == SOCKET_ERROR)
 		{
-			std::cout << "Bytes received! " << numbyt << " bytes!\n";
-			std::cout << buf << "\n";
-			memset(buf, 0, 64);
-
+			std::cout << "WOE IS US\n";
+			return 5;
 		}
+
+		std::cout << "sent " << sendr << " bytes\n";
+		sentbytes += sendr;
 	}
+
+
+	std::cout << "Finish client haha\n";
+	
+	closesocket(client);
+	return 0;
 }
+
 
 int main()
 {
+	std::cout << "tell filename\n";
+
+	std::string input;
+	std::getline(std::cin, input);
+
+	std::ifstream file(input, std::ios::binary);
+
+	coolbytes = std::vector<char>((std::istreambuf_iterator<char>(file)), (std::istreambuf_iterator<char>()));
+
+	file.close();
+
+
+
+
+
+
+
+
+
+
+
 	WSADATA wsaData;
 
 	int result = WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -65,9 +107,6 @@ int main()
 		std::cout << "cant listen\n";
 		return 5;
 	}
-
-	char buf[64];
-	memset(buf, 0, 64);
 
 	SOCKET recvsockz = INVALID_SOCKET;
 	while (true)
