@@ -4,14 +4,12 @@
 #include <vector>
 #include <fstream>
 #include <string>
-
+#include <thread>
 
 std::vector<char> coolbytes;
 
-DWORD WINAPI goshdarnthread(LPVOID arrr)
+DWORD WINAPI goshdarnthread(SOCKET client)
 {
-	SOCKET client = (SOCKET)arrr;
-
 	sockaddr_in adds;
 	int len = sizeof(adds);
 	int sockget = getpeername(client, (sockaddr*)&adds, &len);
@@ -130,11 +128,12 @@ int main()
 		}
 		else
 		{
-			DWORD threadid;
-			CreateThread(NULL, 0, goshdarnthread, (LPVOID)recvsockz, 0, &threadid);
+			std::thread epicclient(goshdarnthread, recvsockz);
 
 			recvsockz = INVALID_SOCKET;
 			std::cout << "new connection\n";
+
+			epicclient.detach();
 		}
 	}
 

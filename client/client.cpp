@@ -4,6 +4,11 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include <chrono>
+
+void testthing(const int& byteswritten)
+{
+}
 
 int main()
 {
@@ -77,16 +82,27 @@ int main()
 
 	int totalll = 0;
 
+	auto cloc = std::chrono::high_resolution_clock::now();
 	while (true)
 	{
+		for (int i = 0; i < 5500; i++)
+		{
+			int a = 5 - 3;
+			int b = a - 13;
+		}
 		int numbyt = recv(server, buf, BUFSIZE, 0);
 		if (numbyt > 0)
 		{
 			totalll += numbyt;
 
-			std::cout << totalll << " Bytes received! " << numbyt << " bytes!\r";
-			std::cout.flush();
-			//std::cout << buf << "\n";
+			auto clocnow = std::chrono::high_resolution_clock::now();
+			if (std::chrono::duration_cast<std::chrono::milliseconds>(clocnow - cloc).count() >= 250)
+			{
+				cloc = std::chrono::high_resolution_clock::now();
+				std::cout << "\r" << totalll << " Bytes received! " << numbyt << " bytes!";
+				std::cout.flush();
+				//std::cout << buf << "\n";
+			}
 
 			output.write(buf, numbyt);
 
@@ -104,6 +120,7 @@ int main()
 			break;
 		}
 	}
+	std::cout << "received " << totalll << " bytes total.\n";
 	
 	std::cout << "closing file\n";
 
@@ -115,6 +132,4 @@ int main()
 	closesocket(server);
 
 	WSACleanup();
-
-	std::getchar();
 };
