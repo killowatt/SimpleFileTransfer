@@ -34,8 +34,9 @@ DWORD WINAPI goshdarnthread(LPVOID arrr)
 			return 5;
 		}
 
-		std::cout << "sent " << sendr << " bytes\n";
 		sentbytes += sendr;
+		std::cout << "\r" << sentbytes << "/" << totalbytes << " bytes sent.";
+		std::cout.flush();
 	}
 
 
@@ -53,13 +54,22 @@ int main()
 	std::string input;
 	std::getline(std::cin, input);
 
-	std::ifstream file(input, std::ios::binary);
+	std::ifstream file(input, std::ios::binary | std::ios::ate);
+	if (file.fail())
+	{
+		std::cout << "failed to open\n";
+		return 1;
+	}
 
-	coolbytes = std::vector<char>((std::istreambuf_iterator<char>(file)), (std::istreambuf_iterator<char>()));
+	int filesize = file.tellg();
+	file.seekg(0, file.beg);
+
+	coolbytes = std::vector<char>(filesize);
+	file.read(coolbytes.data(), filesize);
 
 	file.close();
 
-
+	std::cout << "finished loading file\n";
 
 
 

@@ -75,13 +75,18 @@ int main()
 	char buf[BUFSIZE];
 	memset(buf, 0, BUFSIZE);
 
+	int totalll = 0;
+
 	while (true)
 	{
 		int numbyt = recv(server, buf, BUFSIZE, 0);
 		if (numbyt > 0)
 		{
-			std::cout << "Bytes received! " << numbyt << " bytes!\n";
-			std::cout << buf << "\n";
+			totalll += numbyt;
+
+			std::cout << totalll << " Bytes received! " << numbyt << " bytes!\r";
+			std::cout.flush();
+			//std::cout << buf << "\n";
 
 			output.write(buf, numbyt);
 
@@ -100,6 +105,7 @@ int main()
 		}
 	}
 	
+	std::cout << "closing file\n";
 
 	output.close();
 
@@ -110,5 +116,5 @@ int main()
 
 	WSACleanup();
 
-
+	std::getchar();
 };
