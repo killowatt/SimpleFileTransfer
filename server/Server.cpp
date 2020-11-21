@@ -7,8 +7,6 @@
 #include <WinSock2.h>
 #include <WS2tcpip.h>
 
-std::vector<char> fileBytes;
-
 void HandleClient(SOCKET client)
 {
 	sockaddr_in adds;
@@ -20,8 +18,8 @@ void HandleClient(SOCKET client)
 
 	printf("Client connected from %s\n", address);
 
-	std::ofstream output("received.mp4", std::ios::binary | std::ios::out | std::ios::trunc);
-	if (output.fail())
+	std::ofstream file("received.mp4", std::ios::binary | std::ios::out | std::ios::trunc);
+	if (file.fail())
 	{
 		printf("Failed to open file for writing\n");
 		closesocket(client);
@@ -32,7 +30,7 @@ void HandleClient(SOCKET client)
 	char buffer[BUFSIZE];
 	memset(buffer, 0, BUFSIZE);
 
-	int totalBytes = 0;
+	std::streampos totalBytes = 0;
 	while (true)
 	{
 		int bytesReceived = recv(client, buffer, BUFSIZE, 0);
@@ -40,12 +38,13 @@ void HandleClient(SOCKET client)
 		{
 			totalBytes += bytesReceived;
 
-			output.write(buffer, bytesReceived);
+			file.write(buffer, bytesReceived);
 			memset(buffer, 0, BUFSIZE);
 		}
 		else if (bytesReceived == 0)
 		{
-			printf("Received %d bytes total from %s", totalBytes, address);
+			std::cout << "Received " << totalBytes;
+			printf(" bytes total from %s", address);
 			break;
 		}
 		else if (bytesReceived == SOCKET_ERROR)
@@ -56,7 +55,7 @@ void HandleClient(SOCKET client)
 		}
 	}
 
-	output.close();
+	file.close();
 
 	closesocket(client);
 }

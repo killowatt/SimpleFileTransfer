@@ -26,36 +26,36 @@
 //}
 
 
-int main()
+int main(int argc, char *argv[])
 {
-	printf("Please enter the name or path of a file you'd like to send.\n");
-
-	std::ifstream file;
-	bool opened = false;
-	while (!opened)
+	printf("\n");
+	if (argc < 3)
 	{
-		std::string inputFilename;
-		std::getline(std::cin, inputFilename);
-
-		file = std::ifstream(inputFilename, std::ios::binary | std::ios::ate);
-		if (!file)
-		{
-			printf("Failed to open file, try again.\n");
-			continue;
-		}
-
-		opened = true;
+		printf("Usage: %s file address [port]\n\n", argv[0]);
+		printf("Options:\n");
+		printf("\tfile:		input file or path to send to the server\n");
+		printf("\taddress:	the destination server to send to\n");
+		printf("\tport:		desired port to use when connecting\n");
+		return 0;
 	}
 
-	printf("Loading file...\t\t");
-	int fileSize = file.tellg();
+	const char* fileName = argv[1];
+	const char* address = argv[2];
+	const char* port = argc > 3 ? argv[3] : "27015";
+
+	//
+	//
+	//
+	std::ifstream file(fileName, std::ios::binary | std::ios::ate);
+	if (!file)
+	{
+		printf("Failed to open file, exiting\n");
+		return 1;
+	}
+
+	std::streampos fileSize = file.tellg();
 	file.seekg(0, file.beg);
-
-	std::vector<char> fileBytes(fileSize);
-	file.read(fileBytes.data(), fileSize);
-
-	file.close();
-	printf("Done\n");
+	std::cout << "Filesize is " << fileSize << " bytes\n";
 
 
 	printf("Initializing WinSock...\t");
@@ -70,15 +70,6 @@ int main()
 	printf("Done\n");
 
 
-	std::cout << "what is ip\n";
-	std::string line;
-	std::getline(std::cin, line);
-
-	sockaddr_in sockad;
-	inet_pton(AF_INET, line.c_str(), &sockad.sin_addr);
-	sockad.sin_family = AF_INET;
-	sockad.sin_port = htons(27015);
-
 	printf("Creating socket...\t");
 	SOCKET server = socket(AF_INET, SOCK_STREAM, 0);
 	if (server == INVALID_SOCKET)
@@ -88,6 +79,11 @@ int main()
 	}
 	printf("Done\n");
 
+	sockaddr_in sockad;
+	inet_pton(AF_INET, address, &sockad.sin_addr);
+	sockad.sin_family = AF_INET;
+	sockad.sin_port = htons(27015);
+
 	printf("Connecting...\t\t");
 	if (connect(server, (sockaddr*)&sockad, sizeof(sockad)))
 	{
@@ -96,21 +92,38 @@ int main()
 	}
 	printf("Done\n");
 
+	char buffer[512];
 
-	int totalBytes = 0;
-	while (totalBytes < fileBytes.size())
+	auto clock = std::chrono::high_resolution_clock::now();
+
+	std::streampos totalBytes = 0;
+	while (totalBytes < fileSize)
 	{
-		int bytesSent = send(server, fileBytes.data() + totalBytes, fileBytes.size() - totalBytes, 0);
-		if (bytesSent == SOCKET_ERROR)
+		file.read(buffer, 512);
+
+		int okk = 0;
+		while (okk < 512)
 		{
-			printf("\nError");
-			break;
+			int bytesSent = send(server, buffer + okk, 512 - okk, 0);
+			if (bytesSent == SOCKET_ERROR)
+			{
+				printf("\nError");
+				break;
+			}
+
+			okk += bytesSent;
+			totalBytes += bytesSent;
 		}
 
-		totalBytes += bytesSent;
-		std::cout << "\r" << totalBytes << "/" << fileBytes.size() << " bytes sent";
-		std::cout.flush();
+		auto noww = std::chrono::high_resolution_clock::now();
+		if (std::chrono::duration_cast<std::chrono::milliseconds>(noww - clock).count() > 500)
+		{
+			clock = std::chrono::high_resolution_clock::now();
+			std::cout << "\r" << totalBytes << "/" << fileSize << " bytes sent";
+			std::cout.flush();
+		}
 	}
+	printf("\n");
 
 	printf("File successfully sent!\n");
 	printf("Disconnecting\n");
