@@ -3,6 +3,8 @@
 #include <string>
 #include <vector>
 #include <chrono>
+#include <algorithm>
+#include <filesystem>
 #include <WinSock2.h>
 #include <WS2tcpip.h>
 
@@ -25,6 +27,7 @@
 //	if 
 //}
 
+#define CHUNK_SIZE 512
 
 int main(int argc, char *argv[])
 {
@@ -53,7 +56,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	std::streampos fileSize = file.tellg();
+	std::streamoff fileSize = file.tellg();
 	file.seekg(0, file.beg);
 	std::cout << "Filesize is " << fileSize << " bytes\n";
 
@@ -92,26 +95,59 @@ int main(int argc, char *argv[])
 	}
 	printf("Done\n");
 
-	char buffer[512];
+	std::filesystem::path prr = std::filesystem::path(fileName).filename();
+	std::string mystr = prr.string();
+
+
+	int jesus = 0;
+	size_t data = mystr.size() + 1;
+	while (jesus < sizeof(size_t))
+	{
+		int bytesSent = send(server, (char*)&data + jesus, sizeof(size_t) - jesus, 0);
+		jesus += bytesSent;
+
+		if (bytesSent == SOCKET_ERROR)
+		{
+			printf("socket errr\n %d\n", WSAGetLastError());
+			return 1;
+		}
+	}
+
+	int tempott = 0;
+	while (tempott < mystr.size() + 1)
+	{
+		int bytesSent = send(server, mystr.c_str() + tempott, mystr.size() + 1 - tempott, 0);
+		if (bytesSent == SOCKET_ERROR)
+		{
+			printf("error on filename send\n");
+			return 1;
+		}
+		
+		tempott += bytesSent;
+	}
+
 
 	auto clock = std::chrono::high_resolution_clock::now();
 
-	std::streampos totalBytes = 0;
+	char buffer[CHUNK_SIZE];
+
+	std::streamoff totalBytes = 0;
 	while (totalBytes < fileSize)
 	{
-		file.read(buffer, 512);
+		file.read(buffer, CHUNK_SIZE);
 
-		int okk = 0;
-		while (okk < 512)
+		int chunkBytes = 0;
+		int oksize = std::min<int>((uint64_t)(fileSize - totalBytes), CHUNK_SIZE);
+		while (chunkBytes < oksize)
 		{
-			int bytesSent = send(server, buffer + okk, 512 - okk, 0);
+			int bytesSent = send(server, buffer + chunkBytes, oksize - chunkBytes, 0);
 			if (bytesSent == SOCKET_ERROR)
 			{
-				printf("\nError");
+				printf("\nError..%d", WSAGetLastError());
 				break;
 			}
 
-			okk += bytesSent;
+			chunkBytes += bytesSent;
 			totalBytes += bytesSent;
 		}
 
@@ -123,6 +159,8 @@ int main(int argc, char *argv[])
 			std::cout.flush();
 		}
 	}
+	std::cout << "\r" << totalBytes << "/" << fileSize << " bytes sent";
+	std::cout.flush();
 	printf("\n");
 
 	printf("File successfully sent!\n");

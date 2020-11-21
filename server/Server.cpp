@@ -18,7 +18,61 @@ void HandleClient(SOCKET client)
 
 	printf("Client connected from %s\n", address);
 
-	std::ofstream file("received.mp4", std::ios::binary | std::ios::out | std::ios::trunc);
+	size_t msgSize = 0;
+	int recvd = 0;
+	while (recvd < sizeof(size_t))
+	{
+		int bytesReceived = recv(client, (char*)&msgSize + recvd, sizeof(size_t) - recvd, 0);
+
+		if (bytesReceived > 0)
+		{
+			recvd += bytesReceived;
+		}
+		else if (bytesReceived == 0)
+		{
+			// conn closed
+			return;
+		}
+		else if (bytesReceived == SOCKET_ERROR)
+		{
+			// err
+			return;
+		}
+	}
+
+	std::cout << msgSize << "\n";
+
+	std::vector<char> lol(msgSize);
+	int tottt = 0;
+	while (tottt < msgSize)
+	{
+		int bytesReceived = recv(client, lol.data() + tottt, msgSize - tottt, 0);
+		if (bytesReceived > 0)
+		{
+			tottt += bytesReceived;
+		}
+		else if (bytesReceived == 0)
+		{
+			// conn closed
+			return;
+		}
+		else if (bytesReceived == SOCKET_ERROR)
+		{
+			// err
+			return;
+		}
+	}
+
+	for (char c : lol)
+	{
+		std::cout << c;
+	}
+	std::cout << "\n";
+
+	std::string finalnam(lol.data());
+	std::cout << "FILE NAME! " << finalnam << "\n";
+
+	std::ofstream file(finalnam, std::ios::binary | std::ios::out | std::ios::trunc);
 	if (file.fail())
 	{
 		printf("Failed to open file for writing\n");
@@ -44,7 +98,7 @@ void HandleClient(SOCKET client)
 		else if (bytesReceived == 0)
 		{
 			std::cout << "Received " << totalBytes;
-			printf(" bytes total from %s", address);
+			printf(" bytes total from %s\n", address);
 			break;
 		}
 		else if (bytesReceived == SOCKET_ERROR)
