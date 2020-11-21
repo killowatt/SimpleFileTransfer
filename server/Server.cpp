@@ -15,64 +15,54 @@ void HandleClient(SOCKET client)
 	int len = sizeof(adds);
 	int sockget = getpeername(client, (sockaddr*)&adds, &len);
 
-	char address[INET6_ADDRSTRLEN];
+	char address[INET_ADDRSTRLEN];
 	inet_ntop(AF_INET, &adds.sin_addr, address, sizeof(address));
 
 	printf("Client connected from %s\n", address);
 
-	int totalBytes = 0;
-	while (totalBytes < fileBytes.size())
+	std::ofstream output("received.mp4", std::ios::binary | std::ios::out | std::ios::trunc);
+	if (output.fail())
 	{
-		int bytesSent = send(client, fileBytes.data() + totalBytes, fileBytes.size() - totalBytes, 0);
-		if (bytesSent == SOCKET_ERROR)
+		printf("Failed to open file for writing\n");
+		closesocket(client);
+		return;
+	}
+
+	const int BUFSIZE = 512;
+	char buffer[BUFSIZE];
+	memset(buffer, 0, BUFSIZE);
+
+	int totalBytes = 0;
+	while (true)
+	{
+		int bytesReceived = recv(client, buffer, BUFSIZE, 0);
+		if (bytesReceived > 0)
 		{
-			printf("\nError");
+			totalBytes += bytesReceived;
+
+			output.write(buffer, bytesReceived);
+			memset(buffer, 0, BUFSIZE);
+		}
+		else if (bytesReceived == 0)
+		{
+			printf("Received %d bytes total from %s", totalBytes, address);
 			break;
 		}
-
-		totalBytes += bytesSent;
-		std::cout << "\r" << totalBytes << "/" << fileBytes.size() << " bytes sent.";
-		std::cout.flush();
+		else if (bytesReceived == SOCKET_ERROR)
+		{
+			printf("Error receiving from %s with error %d",
+				address, WSAGetLastError());
+			break;
+		}
 	}
-	printf("\n");
 
-	std::cout << "Finish client haha\n";
-	
+	output.close();
+
 	closesocket(client);
 }
 
 int main()
 {
-	printf("Please enter the name or path of a file you'd like to host.\n");
-
-	std::ifstream file;
-	bool opened = false;
-	while (!opened)
-	{
-		std::string inputFilename;
-		std::getline(std::cin, inputFilename);
-
-		file = std::ifstream(inputFilename, std::ios::binary | std::ios::ate);
-		if (!file)
-		{
-			printf("Failed to open file, try again.\n");
-			continue;
-		}
-
-		opened = true;
-	}
-
-	printf("Loading file...\t\t");
-	int fileSize = file.tellg();
-	file.seekg(0, file.beg);
-
-	fileBytes = std::vector<char>(fileSize);
-	file.read(fileBytes.data(), fileSize);
-
-	file.close();
-	printf("Done\n");
-
-
 	printf("Initializing WinSock...\t");
 
 	WSADATA wsaData;
@@ -96,8 +86,6 @@ int main()
 
 	// OLD STYLE !
 	sockaddr_in soin;
-	//soin.sin_addr.s_addr = inet_addr("127.0.0.1");
-	//inet_pton(AF_INET, "127.0.0.1", &soin.sin_addr);
 	soin.sin_addr.s_addr = INADDR_ANY;
 	soin.sin_family = AF_INET;
 	soin.sin_port = htons(27015);
