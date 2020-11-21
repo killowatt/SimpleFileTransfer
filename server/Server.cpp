@@ -1,97 +1,98 @@
-#include <WinSock2.h>
-#include <WS2tcpip.h>
 #include <iostream>
 #include <vector>
 #include <fstream>
 #include <string>
 #include <thread>
+#include <csignal>
+#include <WinSock2.h>
+#include <WS2tcpip.h>
 
-std::vector<char> coolbytes;
+std::vector<char> fileBytes;
 
-DWORD WINAPI goshdarnthread(SOCKET client)
+void HandleClient(SOCKET client)
 {
 	sockaddr_in adds;
 	int len = sizeof(adds);
 	int sockget = getpeername(client, (sockaddr*)&adds, &len);
 
-	char ipadd[INET6_ADDRSTRLEN];
-	inet_ntop(AF_INET, &adds.sin_addr, ipadd, sizeof(ipadd));
+	char address[INET6_ADDRSTRLEN];
+	inet_ntop(AF_INET, &adds.sin_addr, address, sizeof(address));
 
-	std::cout << "THREAD!!!\n";
-	std::cout << "client @ " << ipadd << "\n";
+	printf("Client connected from %s\n", address);
 
-
-	int sentbytes = 0;
-	int totalbytes = coolbytes.size();
-	while (sentbytes < totalbytes)
+	int totalBytes = 0;
+	while (totalBytes < fileBytes.size())
 	{
-		int sendr = send(client, coolbytes.data() + sentbytes, coolbytes.size() - sentbytes, 0);
-		if (sendr == SOCKET_ERROR)
+		int bytesSent = send(client, fileBytes.data() + totalBytes, fileBytes.size() - totalBytes, 0);
+		if (bytesSent == SOCKET_ERROR)
 		{
-			std::cout << "WOE IS US\n";
-			return 5;
+			printf("\nError");
+			break;
 		}
 
-		sentbytes += sendr;
-		std::cout << "\r" << sentbytes << "/" << totalbytes << " bytes sent.";
+		totalBytes += bytesSent;
+		std::cout << "\r" << totalBytes << "/" << fileBytes.size() << " bytes sent.";
 		std::cout.flush();
 	}
-
+	printf("\n");
 
 	std::cout << "Finish client haha\n";
 	
 	closesocket(client);
-	return 0;
 }
-
 
 int main()
 {
-	std::cout << "tell filename\n";
+	printf("Please enter the name or path of a file you'd like to host.\n");
 
-	std::string input;
-	std::getline(std::cin, input);
-
-	std::ifstream file(input, std::ios::binary | std::ios::ate);
-	if (file.fail())
+	std::ifstream file;
+	bool opened = false;
+	while (!opened)
 	{
-		std::cout << "failed to open\n";
-		return 1;
+		std::string inputFilename;
+		std::getline(std::cin, inputFilename);
+
+		file = std::ifstream(inputFilename, std::ios::binary | std::ios::ate);
+		if (!file)
+		{
+			printf("Failed to open file, try again.\n");
+			continue;
+		}
+
+		opened = true;
 	}
 
-	int filesize = file.tellg();
+	printf("Loading file...\t\t");
+	int fileSize = file.tellg();
 	file.seekg(0, file.beg);
 
-	coolbytes = std::vector<char>(filesize);
-	file.read(coolbytes.data(), filesize);
+	fileBytes = std::vector<char>(fileSize);
+	file.read(fileBytes.data(), fileSize);
 
 	file.close();
-
-	std::cout << "finished loading file\n";
-
+	printf("Done\n");
 
 
-
-
-
-
-
+	printf("Initializing WinSock...\t");
 
 	WSADATA wsaData;
-
-	int result = WSAStartup(MAKEWORD(2, 2), &wsaData);
-	if (result)
+	int wsaError = WSAStartup(MAKEWORD(2, 2), &wsaData);
+	if (wsaError)
 	{
-		std::cout << "Failed to initialize WinSock with error " << result << "\n";
+		printf("Failed\nFailed to initialze WinSock with error %d\n", wsaError);
 		return 1;
 	}
+	printf("Done\n");
 
-	SOCKET sock = socket(AF_INET, SOCK_STREAM, 0);
-	if (sock == INVALID_SOCKET)
+
+	printf("Creating socket...\t");
+	SOCKET listenSocket = socket(AF_INET, SOCK_STREAM, 0);
+	if (listenSocket == INVALID_SOCKET)
 	{
-		std::cout << "Failed to create socket with error " << WSAGetLastError() << "\n";
-		return 2;
+		printf("Failed\nSocket creation failed with error %d\n", WSAGetLastError());
+		return 1;
 	}
+	printf("Done\n");
 
 	// OLD STYLE !
 	sockaddr_in soin;
@@ -101,45 +102,39 @@ int main()
 	soin.sin_family = AF_INET;
 	soin.sin_port = htons(27015);
 
-	int binndres = bind(sock, (sockaddr*)&soin, sizeof(soin));
-	if (binndres)
+	if (bind(listenSocket, (sockaddr*)&soin, sizeof(soin)))
 	{
-		std::cout << "aaa bind\n";
-		std::cout << WSAGetLastError();
-		return 4;
+		printf("Socket binding failed with error %d\n", WSAGetLastError());
+		return 1;
 	}
 
-	int listr = listen(sock, 10); // 10 is queued connections max
-	if (listr)
+	if (listen(listenSocket, SOMAXCONN))
 	{
-		std::cout << "cant listen\n";
-		return 5;
+		printf("Socket listen failed with error %d\n", WSAGetLastError());
+		return 1;
 	}
 
-	SOCKET recvsockz = INVALID_SOCKET;
+	SOCKET acceptSocket = INVALID_SOCKET;
 	while (true)
 	{
-		int addrle = 0;
-		recvsockz = accept(sock, NULL, NULL);
-		if (recvsockz == INVALID_SOCKET)
+		acceptSocket = accept(listenSocket, nullptr, nullptr);
+		if (acceptSocket == INVALID_SOCKET)
 		{
-			//std::cout << "noaccept\n";
+			printf("Failed to accept connection with error %d", WSAGetLastError());
 			continue;
 		}
 		else
 		{
-			std::thread epicclient(goshdarnthread, recvsockz);
+			std::thread clientThread(HandleClient, acceptSocket);
+			clientThread.detach();
 
-			recvsockz = INVALID_SOCKET;
-			std::cout << "new connection\n";
-
-			epicclient.detach();
+			acceptSocket = INVALID_SOCKET;
 		}
 	}
 
-	std::cout << "Connected\n";
-
+	// WE NEVER REACH THIS!!
+	// AAAAAAAAAAAAAAAAAA
+	// AAAAAAAAAAAAAAAA
+	printf("Server ending\n");
 	WSACleanup();
-
-	std::getchar();
 };
