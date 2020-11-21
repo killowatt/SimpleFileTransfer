@@ -40,8 +40,6 @@ void HandleClient(SOCKET client)
 		}
 	}
 
-	std::cout << msgSize << "\n";
-
 	std::vector<char> lol(msgSize);
 	int tottt = 0;
 	while (tottt < msgSize)
@@ -63,14 +61,9 @@ void HandleClient(SOCKET client)
 		}
 	}
 
-	for (char c : lol)
-	{
-		std::cout << c;
-	}
-	std::cout << "\n";
-
 	std::string finalnam(lol.data());
-	std::cout << "FILE NAME! " << finalnam << "\n";
+	std::cout << "Receiving file " << finalnam;
+	printf(" from %s\n", address);
 
 	std::ofstream file(finalnam, std::ios::binary | std::ios::out | std::ios::trunc);
 	if (file.fail())
