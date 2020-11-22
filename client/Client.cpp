@@ -1,7 +1,7 @@
 #include <iostream>
+#include <vector>
 #include <fstream>
 #include <string>
-#include <vector>
 #include <chrono>
 #include <algorithm>
 #include <filesystem>
@@ -39,8 +39,8 @@ bool SendAll(SOCKET out, const char* buffer, int size)
 			return false;
 		if (bytesSent == 0)
 		{
-			printf("WAT\n");
-			exit(3);
+			printf("\nWhat?\n");
+			return false;
 		}
 
 		totalBytes += bytesSent;
@@ -117,7 +117,7 @@ int main(int argc, char *argv[])
 	std::filesystem::path prr = std::filesystem::path(fileName).filename();
 	std::string mystr = prr.string();
 
-	size_t data = mystr.size() + 1;
+	size_t data = htonll(mystr.size() + 1);
 	if (!SendAll(server, (char*)&data, sizeof(size_t)))
 	{
 		printf("woopsie daisy!\n");
@@ -133,7 +133,6 @@ int main(int argc, char *argv[])
 	auto lastTime = std::chrono::high_resolution_clock::now();
 
 	char buffer[CHUNK_SIZE];
-
 	std::streamoff totalBytes = 0;
 	while (totalBytes < fileSize)
 	{
@@ -143,7 +142,7 @@ int main(int argc, char *argv[])
 
 		if (!SendAll(server, buffer, chunkSize))
 		{
-			printf("oops in chunk sen\n");
+			printf("\nSending failed with error %d\n", WSAGetLastError());
 			return 1;
 		}
 		totalBytes += chunkSize;

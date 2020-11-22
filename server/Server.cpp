@@ -3,8 +3,8 @@
 #include <fstream>
 #include <string>
 #include <thread>
-#include <csignal>
 #include <filesystem>
+#include <csignal>
 #include <WinSock2.h>
 #include <WS2tcpip.h>
 
@@ -15,13 +15,15 @@ bool ReceiveAll(SOCKET receiver, char* buffer, int length)
 	{
 		int bytesReceived = recv(receiver, buffer, length, 0);
 		if (bytesReceived == SOCKET_ERROR)
-			return false;
-		if (bytesReceived == 0)
 		{
-			// return. . ? enum
+			printf("Receiving from socket failed with error %d\n", WSAGetLastError());
 			return false;
 		}
-
+		if (bytesReceived == 0)
+		{
+			printf("Client disconnected while reading from socket\n");
+			return false;
+		}
 
 		totalBytes += bytesReceived;
 	}
@@ -39,71 +41,22 @@ void HandleClient(SOCKET client)
 
 	printf("Client connected from %s\n", address);
 
-	//size_t msgSize = 0;
-	//int recvd = 0;
-	//while (recvd < sizeof(size_t))
-	//{
-	//	int bytesReceived = recv(client, (char*)&msgSize + recvd, sizeof(size_t) - recvd, 0);
-
-	//	if (bytesReceived > 0)
-	//	{
-	//		recvd += bytesReceived;
-	//	}
-	//	else if (bytesReceived == 0)
-	//	{
-	//		// conn closed
-	//		return;
-	//	}
-	//	else if (bytesReceived == SOCKET_ERROR)
-	//	{
-	//		// err
-	//		return;
-	//	}
-	//}
-
-	//std::vector<char> lol(msgSize);
-	//int tottt = 0;
-	//while (tottt < msgSize)
-	//{
-	//	int bytesReceived = recv(client, lol.data() + tottt, msgSize - tottt, 0);
-	//	if (bytesReceived > 0)
-	//	{
-	//		tottt += bytesReceived;
-	//	}
-	//	else if (bytesReceived == 0)
-	//	{
-	//		// conn closed
-	//		return;
-	//	}
-	//	else if (bytesReceived == SOCKET_ERROR)
-	//	{
-	//		// err
-	//		return;
-	//	}
-	//}
-
 	size_t msgSize = 0;
 	if (!ReceiveAll(client, (char*)&msgSize, sizeof(size_t)))
-	{
-		printf("OOPS!!!\n");
 		return;
-	}
+	msgSize = ntohll(msgSize);
 
-	std::vector<char> lol(msgSize);
-	if (!ReceiveAll(client, lol.data(), msgSize))
-	{
-		printf("WHAT!!\n");
+	std::vector<char> fileNameBuffer(msgSize);
+	if (!ReceiveAll(client, fileNameBuffer.data(), msgSize))
 		return;
-	}
 
+	std::filesystem::path path = std::filesystem::path(fileNameBuffer.data()).filename();
+	std::string fileName = path.string();
 
-	std::filesystem::path path = std::filesystem::path(lol.data()).filename();
-	std::string finalnam = path.string();
-
-	std::cout << "Receiving file " << finalnam;
+	std::cout << "Receiving file " << fileName;
 	printf(" from %s\n", address);
 
-	std::ofstream file(finalnam, std::ios::binary | std::ios::out | std::ios::trunc);
+	std::ofstream file(fileName, std::ios::binary | std::ios::out | std::ios::trunc);
 	if (file.fail())
 	{
 		printf("Failed to open file for writing\n");
@@ -143,6 +96,16 @@ void HandleClient(SOCKET client)
 	file.close();
 
 	closesocket(client);
+}
+
+SOCKET acceptSocket = INVALID_SOCKET;
+void siggg(int signum)
+{
+	printf("Shutting down server\n");
+	closesocket(acceptSocket);
+	WSACleanup();
+
+	exit(0);
 }
 
 int main()
@@ -187,9 +150,10 @@ int main()
 		return 1;
 	}
 
+	std::signal(SIGINT, siggg);
+
 	printf("Server is now accepting connections\n");
 
-	SOCKET acceptSocket = INVALID_SOCKET;
 	while (true)
 	{
 		acceptSocket = accept(listenSocket, nullptr, nullptr);
@@ -206,10 +170,4 @@ int main()
 			acceptSocket = INVALID_SOCKET;
 		}
 	}
-
-	// WE NEVER REACH THIS!!
-	// AAAAAAAAAAAAAAAAAA
-	// AAAAAAAAAAAAAAAA
-	printf("Server ending\n");
-	WSACleanup();
 };
