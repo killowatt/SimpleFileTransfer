@@ -4,18 +4,29 @@
 #include <string>
 #include <thread>
 #include <csignal>
+#include <filesystem>
 #include <WinSock2.h>
 #include <WS2tcpip.h>
 
-//bool ReceiveAll(SOCKET receiver, char* buffer, size_t length)
-//{
-//	size_t totalBytes = 0;
-//	while (totalBytes < length)
-//	{
-//		int bytesReceived = recv(receiver, buffer, length, 0);
-//		if (bytesReceived
-//	}
-//}
+bool ReceiveAll(SOCKET receiver, char* buffer, int length)
+{
+	size_t totalBytes = 0;
+	while (totalBytes < length)
+	{
+		int bytesReceived = recv(receiver, buffer, length, 0);
+		if (bytesReceived == SOCKET_ERROR)
+			return false;
+		if (bytesReceived == 0)
+		{
+			// return. . ? enum
+			return false;
+		}
+
+
+		totalBytes += bytesReceived;
+	}
+	return true;
+}
 
 void HandleClient(SOCKET client)
 {
@@ -28,52 +39,67 @@ void HandleClient(SOCKET client)
 
 	printf("Client connected from %s\n", address);
 
+	//size_t msgSize = 0;
+	//int recvd = 0;
+	//while (recvd < sizeof(size_t))
+	//{
+	//	int bytesReceived = recv(client, (char*)&msgSize + recvd, sizeof(size_t) - recvd, 0);
+
+	//	if (bytesReceived > 0)
+	//	{
+	//		recvd += bytesReceived;
+	//	}
+	//	else if (bytesReceived == 0)
+	//	{
+	//		// conn closed
+	//		return;
+	//	}
+	//	else if (bytesReceived == SOCKET_ERROR)
+	//	{
+	//		// err
+	//		return;
+	//	}
+	//}
+
+	//std::vector<char> lol(msgSize);
+	//int tottt = 0;
+	//while (tottt < msgSize)
+	//{
+	//	int bytesReceived = recv(client, lol.data() + tottt, msgSize - tottt, 0);
+	//	if (bytesReceived > 0)
+	//	{
+	//		tottt += bytesReceived;
+	//	}
+	//	else if (bytesReceived == 0)
+	//	{
+	//		// conn closed
+	//		return;
+	//	}
+	//	else if (bytesReceived == SOCKET_ERROR)
+	//	{
+	//		// err
+	//		return;
+	//	}
+	//}
+
 	size_t msgSize = 0;
-	int recvd = 0;
-	while (recvd < sizeof(size_t))
+	if (!ReceiveAll(client, (char*)&msgSize, sizeof(size_t)))
 	{
-		int bytesReceived = recv(client, (char*)&msgSize + recvd, sizeof(size_t) - recvd, 0);
-
-		if (bytesReceived > 0)
-		{
-			recvd += bytesReceived;
-		}
-		else if (bytesReceived == 0)
-		{
-			// conn closed
-			return;
-		}
-		else if (bytesReceived == SOCKET_ERROR)
-		{
-			// err
-			return;
-		}
+		printf("OOPS!!!\n");
+		return;
 	}
-
-	std::cout << msgSize << std::endl;
 
 	std::vector<char> lol(msgSize);
-	int tottt = 0;
-	while (tottt < msgSize)
+	if (!ReceiveAll(client, lol.data(), msgSize))
 	{
-		int bytesReceived = recv(client, lol.data() + tottt, msgSize - tottt, 0);
-		if (bytesReceived > 0)
-		{
-			tottt += bytesReceived;
-		}
-		else if (bytesReceived == 0)
-		{
-			// conn closed
-			return;
-		}
-		else if (bytesReceived == SOCKET_ERROR)
-		{
-			// err
-			return;
-		}
+		printf("WHAT!!\n");
+		return;
 	}
 
-	std::string finalnam(lol.data());
+
+	std::filesystem::path path = std::filesystem::path(lol.data()).filename();
+	std::string finalnam = path.string();
+
 	std::cout << "Receiving file " << finalnam;
 	printf(" from %s\n", address);
 
@@ -121,6 +147,7 @@ void HandleClient(SOCKET client)
 
 int main()
 {
+	printf("\n");
 	printf("Initializing WinSock...\t");
 
 	WSADATA wsaData;
@@ -159,6 +186,8 @@ int main()
 		printf("Socket listen failed with error %d\n", WSAGetLastError());
 		return 1;
 	}
+
+	printf("Server is now accepting connections\n");
 
 	SOCKET acceptSocket = INVALID_SOCKET;
 	while (true)
