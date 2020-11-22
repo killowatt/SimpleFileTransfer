@@ -7,6 +7,16 @@
 #include <WinSock2.h>
 #include <WS2tcpip.h>
 
+//bool ReceiveAll(SOCKET receiver, char* buffer, size_t length)
+//{
+//	size_t totalBytes = 0;
+//	while (totalBytes < length)
+//	{
+//		int bytesReceived = recv(receiver, buffer, length, 0);
+//		if (bytesReceived
+//	}
+//}
+
 void HandleClient(SOCKET client)
 {
 	sockaddr_in adds;
@@ -39,6 +49,8 @@ void HandleClient(SOCKET client)
 			return;
 		}
 	}
+
+	std::cout << msgSize << std::endl;
 
 	std::vector<char> lol(msgSize);
 	int tottt = 0;
@@ -96,7 +108,7 @@ void HandleClient(SOCKET client)
 		}
 		else if (bytesReceived == SOCKET_ERROR)
 		{
-			printf("Error receiving from %s with error %d",
+			printf("Error receiving from %s with error %d\n",
 				address, WSAGetLastError());
 			break;
 		}
