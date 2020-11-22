@@ -98,11 +98,14 @@ void HandleClient(SOCKET client)
 	closesocket(client);
 }
 
-SOCKET acceptSocket = INVALID_SOCKET;
+SOCKET listenSocket = INVALID_SOCKET;
+bool running = true;
 void siggg(int signum)
 {
 	printf("Shutting down server\n");
-	closesocket(acceptSocket);
+
+	running = false;
+	closesocket(listenSocket);
 	WSACleanup();
 
 	exit(0);
@@ -124,7 +127,7 @@ int main()
 
 
 	printf("Creating socket...\t");
-	SOCKET listenSocket = socket(AF_INET, SOCK_STREAM, 0);
+	listenSocket = socket(AF_INET, SOCK_STREAM, 0);
 	if (listenSocket == INVALID_SOCKET)
 	{
 		printf("Failed\nSocket creation failed with error %d\n", WSAGetLastError());
@@ -153,13 +156,18 @@ int main()
 	std::signal(SIGINT, siggg);
 
 	printf("Server is now accepting connections\n");
+	printf("Press Ctrl + C to stop the server\n");
 
-	while (true)
+	SOCKET acceptSocket = INVALID_SOCKET;
+	while (running)
 	{
 		acceptSocket = accept(listenSocket, nullptr, nullptr);
 		if (acceptSocket == INVALID_SOCKET)
 		{
-			printf("Failed to accept connection with error %d", WSAGetLastError());
+			int lastError = WSAGetLastError();
+			// Suppress annoying error when closing the socket
+			if (lastError != WSAEINTR)
+				printf("Failed to accept connection with error %d\n", WSAGetLastError());
 			continue;
 		}
 		else
