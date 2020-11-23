@@ -10,7 +10,7 @@ filenames on both ends.
 
 The program will attempt name resolution and supports both IPv4 and IPv6.
 
-The program should support even large files gigabytes in size.
+The program should support even large files gigabytes in size (Tested up to 4.5 GB)
 
 # Building
 Requires Visual Studio 2019.

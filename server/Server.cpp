@@ -10,7 +10,7 @@
 #include <WS2tcpip.h>
 
 #define DEFAULT_PORT "27015"	// Default port if none is specified
-#define FILE_BUFFER_SIZE 512	// Size of the buffer used when receiving files
+#define BUFFER_SIZE 512			// Size of the buffer used when receiving files
 
 // Used to receive data until a set amount in total is received
 // Returns true on success and false on failure
@@ -76,7 +76,8 @@ void HandleClient(SOCKET client, std::string addressString)
 	}
 
 	// Sanitize the filename so its a name only, no path
-	std::filesystem::path fileNamePath = std::filesystem::path(fileNameBuffer.data()).filename();
+	std::filesystem::path fileNamePath = 
+		std::filesystem::path(fileNameBuffer.data()).filename();
 	std::string fileName = fileNamePath.string();
 
 	/*
@@ -99,7 +100,7 @@ void HandleClient(SOCKET client, std::string addressString)
 	*	Receive all of the file's bytes from the client
 	*/
 	// Create our buffer and zero out the bytes
-	char buffer[FILE_BUFFER_SIZE];
+	char buffer[BUFFER_SIZE];
 	memset(buffer, 0, sizeof(buffer));
 
 	// Receive bytes, looping until the client disconnects
@@ -195,7 +196,7 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
-	// Iterate through the linked list, try to create and bind sockets along the way
+	// Iterate through the linked list, trying to create and bind sockets
 	addrinfo* node = resolved;
 	for (node = resolved; node != nullptr; node = node->ai_next)
 	{
@@ -208,7 +209,8 @@ int main(int argc, char* argv[])
 		// This enables the dual-stack socket so we can use a single socket
 		// for both IPv4 and IPv6 connections
 		int option = 0;
-		setsockopt(attempt, IPPROTO_IPV6, IPV6_V6ONLY, (char*)&option, sizeof(option));
+		setsockopt(attempt, IPPROTO_IPV6, IPV6_V6ONLY,
+			(char*)&option, sizeof(option));
 
 		// Attempt to bind our socket and move on if we fail
 		if (bind(attempt, node->ai_addr, (int)node->ai_addrlen))
@@ -238,16 +240,16 @@ int main(int argc, char* argv[])
 	// Try to start listening on our new socket
 	if (listen(listener, SOMAXCONN))
 	{
-		std::cout << "Socket listen failed with error ";
-		std::cout << WSAGetLastError() << "\n";
+		std::cout << "Socket listen failed with error "
+			<< WSAGetLastError() << "\n";
 		return 1;
 	}
 
 	// Setup interrupt signal handler for main loop below
 	std::signal(SIGINT, SignalHandler);
 
-	std::cout << "Server is now listening on port " << port << "\n";
-	std::cout << "Press Ctrl + C to stop the server\n\n";
+	std::cout << "Server is now listening on port " << port << "\n"
+		<< "Press Ctrl + C to stop the server\n\n";
 
 	// Main loop, accept any client connections and start threads for them
 	SOCKET acceptSocket = INVALID_SOCKET;
@@ -263,8 +265,8 @@ int main(int argc, char* argv[])
 			// Suppress annoying error when closing the socket
 			if (true || lastError != WSAEINTR)
 			{
-				std::cout << "Failed to accept connection with error ";
-				std::cout << WSAGetLastError() << "\n";
+				std::cout << "Failed to accept connection with error "
+					<< WSAGetLastError() << "\n";
 			}
 			continue;
 		}
@@ -276,11 +278,13 @@ int main(int argc, char* argv[])
 		sockaddr* socketAddress = nullptr;
 		if (acceptStorage.ss_family == AF_INET)
 		{
-			socketAddress = (sockaddr*)&(((sockaddr_in*)&acceptStorage)->sin_addr);
+			socketAddress = 
+				(sockaddr*)&(((sockaddr_in*)&acceptStorage)->sin_addr);
 		}
 		else if (acceptStorage.ss_family == AF_INET6)
 		{
-			socketAddress = (sockaddr*)&(((sockaddr_in6*)&acceptStorage)->sin6_addr);
+			socketAddress = 
+				(sockaddr*)&(((sockaddr_in6*)&acceptStorage)->sin6_addr);
 		}
 
 		// If socket address got set, then get the readable address string

@@ -9,7 +9,7 @@
 #include <WS2tcpip.h>
 
 #define DEFAULT_PORT "27015"	// Default port if none is specified
-#define CHUNK_SIZE 512			// Size of chunks we read our file into and send
+#define BUFFER_SIZE 512			// Size of chunks we read our file into and send
 
 // Used to send repeatedly until all data has been sent
 // Returns true on success and false on failure
@@ -42,7 +42,7 @@ int main(int argc, char* argv[])
 			"    file:\tinput file or path to send to the server\n"
 			"    address:\tthe destination server to send to\n"
 			"    port:\tdesired port to use when connecting, default "
-			<< DEFAULT_PORT;
+			<< DEFAULT_PORT << "\n";
 
 		return 0;
 	}
@@ -169,12 +169,13 @@ int main(int argc, char* argv[])
 	*/
 	auto lastTime = std::chrono::high_resolution_clock::now();
 
-	char buffer[CHUNK_SIZE];
+	char buffer[BUFFER_SIZE];
 	std::streamoff totalBytes = 0;
 	while (totalBytes < fileSize)
 	{
 		// Determine the size of the chunk, then read that amount from file
-		size_t chunkSize = std::min<std::streamoff>((std::streamoff)(fileSize - totalBytes), CHUNK_SIZE);
+		size_t chunkSize = std::min<std::streamoff>(
+			(std::streamoff)(fileSize - totalBytes), BUFFER_SIZE);
 		file.read(buffer, chunkSize);
 
 		// Send all the bytes from the chunk we just read
