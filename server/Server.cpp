@@ -30,16 +30,16 @@ bool ReceiveAll(SOCKET receiver, char* buffer, int length)
 	return true;
 }
 
-void HandleClient(SOCKET client)
+void HandleClient(SOCKET client, const char* address)
 {
-	sockaddr_in adds;
-	int len = sizeof(adds);
-	int sockget = getpeername(client, (sockaddr*)&adds, &len);
+	//sockaddr_in adds;
+	//int len = sizeof(adds);
+	//int sockget = getpeername(client, (sockaddr*)&adds, &len);
 
-	char address[INET_ADDRSTRLEN];
-	inet_ntop(AF_INET, &adds.sin_addr, address, sizeof(address));
+	//char address[INET6_ADDRSTRLEN];
+	//inet_ntop(AF_INET, &adds.sin_addr, address, sizeof(address));
 
-	printf("Client connected from %s\n", address);
+	//printf("Client connected from %s\n", address);
 
 	size_t msgSize = 0;
 	if (!ReceiveAll(client, (char*)&msgSize, sizeof(size_t)))
@@ -126,25 +126,64 @@ int main()
 	printf("Done\n");
 
 
-	printf("Creating socket...\t");
-	listenSocket = socket(AF_INET, SOCK_STREAM, 0);
-	if (listenSocket == INVALID_SOCKET)
-	{
-		printf("Failed\nSocket creation failed with error %d\n", WSAGetLastError());
-		return 1;
-	}
-	printf("Done\n");
+	//printf("Creating socket...\t");
+	//listenSocket = socket(AF_INET, SOCK_STREAM, 0);
+	//if (listenSocket == INVALID_SOCKET)
+	//{
+	//	printf("Failed\nSocket creation failed with error %d\n", WSAGetLastError());
+	//	return 1;
+	//}
+	//printf("Done\n");
 
 	// OLD STYLE !
-	sockaddr_in soin;
-	soin.sin_addr.s_addr = INADDR_ANY;
-	soin.sin_family = AF_INET;
-	soin.sin_port = htons(27015);
+	//sockaddr_in soin;
+	//soin.sin_addr.s_addr = INADDR_ANY;
+	//soin.sin_family = AF_INET;
+	//soin.sin_port = htons(27015);
 
-	if (bind(listenSocket, (sockaddr*)&soin, sizeof(soin)))
+	//if (bind(listenSocket, (sockaddr*)&soin, sizeof(soin)))
+	//{
+	//	printf("Socket binding failed with error %d\n", WSAGetLastError());
+	//	return 1;
+	//}
+
+	addrinfo hints;
+	memset(&hints, 0, sizeof(addrinfo));
+	hints.ai_family = AF_INET;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_flags = AI_PASSIVE;
+
+	addrinfo* somethin;
+	int result = getaddrinfo(nullptr, "27015", &hints, &somethin);
+	if (result)
 	{
-		printf("Socket binding failed with error %d\n", WSAGetLastError());
+		printf("Failure somethin %d\n", result);
 		return 1;
+	}
+
+	addrinfo* t = somethin;
+	for (t = somethin; t != nullptr; t = t->ai_next)
+	{
+		printf("%d %d %d\n", t->ai_family, t->ai_socktype, t->ai_protocol);
+
+		listenSocket = socket(t->ai_family, t->ai_socktype,
+			t->ai_protocol);
+		if (listenSocket == SOCKET_ERROR)
+		{
+			printf("tried to socket but no\n");
+			continue;
+		}
+
+		int option = 0;
+		setsockopt(listenSocket, IPPROTO_IPV6, IPV6_V6ONLY, (char*)&option, sizeof(int));
+
+		if (bind(listenSocket, t->ai_addr, t->ai_addrlen) == SOCKET_ERROR)
+		{
+			closesocket(listenSocket);
+			continue;
+		}
+
+		break;
 	}
 
 	if (listen(listenSocket, SOMAXCONN))
@@ -159,9 +198,11 @@ int main()
 	printf("Press Ctrl + C to stop the server\n");
 
 	SOCKET acceptSocket = INVALID_SOCKET;
+	sockaddr_storage acceptAddress;
 	while (running)
 	{
-		acceptSocket = accept(listenSocket, nullptr, nullptr);
+		int addrlen = sizeof(acceptAddress);
+		acceptSocket = accept(listenSocket, (sockaddr*)&acceptAddress, &addrlen);
 		if (acceptSocket == INVALID_SOCKET)
 		{
 			int lastError = WSAGetLastError();
@@ -172,7 +213,22 @@ int main()
 		}
 		else
 		{
-			std::thread clientThread(HandleClient, acceptSocket);
+			char address[INET6_ADDRSTRLEN];
+
+			if (acceptAddress.ss_family == AF_INET)
+			{
+				inet_ntop(AF_INET, (sockaddr_in*)&acceptAddress,
+					address, sizeof(address));
+			}
+			else if (acceptAddress.ss_family == AF_INET6)
+			{
+				inet_ntop(AF_INET6, (sockaddr_in6*)&acceptAddress,
+					address, sizeof(address));
+			}
+
+			std::cout << address << "\n";
+
+			std::thread clientThread(HandleClient, acceptSocket, address);
 			clientThread.detach();
 
 			acceptSocket = INVALID_SOCKET;
