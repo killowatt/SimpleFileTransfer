@@ -5,8 +5,12 @@
 #include <thread>
 #include <filesystem>
 #include <csignal>
+#include <list>
 #include <WinSock2.h>
 #include <WS2tcpip.h>
+
+#define DEFAULT_PORT "27015"
+#define FILE_BUFFER_SIZE 512
 
 bool ReceiveAll(SOCKET receiver, char* buffer, int length)
 {
@@ -32,17 +36,10 @@ bool ReceiveAll(SOCKET receiver, char* buffer, int length)
 
 void HandleClient(SOCKET client, const char* address)
 {
-	//sockaddr_in adds;
-	//int len = sizeof(adds);
-	//int sockget = getpeername(client, (sockaddr*)&adds, &len);
-
-	//char address[INET6_ADDRSTRLEN];
-	//inet_ntop(AF_INET, &adds.sin_addr, address, sizeof(address));
-
-	//printf("Client connected from %s\n", address);
+	printf("Client connected from %s\n", address);
 
 	size_t msgSize = 0;
-	if (!ReceiveAll(client, (char*)&msgSize, sizeof(size_t)))
+	if (!ReceiveAll(client, (char*)&msgSize, sizeof(msgSize)))
 		return;
 	msgSize = ntohll(msgSize);
 
@@ -64,20 +61,19 @@ void HandleClient(SOCKET client, const char* address)
 		return;
 	}
 
-	const int BUFSIZE = 512;
-	char buffer[BUFSIZE];
-	memset(buffer, 0, BUFSIZE);
+	char buffer[FILE_BUFFER_SIZE];
+	memset(buffer, 0, sizeof(buffer));
 
 	std::streampos totalBytes = 0;
 	while (true)
 	{
-		int bytesReceived = recv(client, buffer, BUFSIZE, 0);
+		int bytesReceived = recv(client, buffer, sizeof(buffer), 0);
 		if (bytesReceived > 0)
 		{
 			totalBytes += bytesReceived;
 
 			file.write(buffer, bytesReceived);
-			memset(buffer, 0, BUFSIZE);
+			memset(buffer, 0, sizeof(buffer));
 		}
 		else if (bytesReceived == 0)
 		{
@@ -94,25 +90,26 @@ void HandleClient(SOCKET client, const char* address)
 	}
 
 	file.close();
-
 	closesocket(client);
 }
 
-SOCKET listenSocket = INVALID_SOCKET;
+SOCKET listener = INVALID_SOCKET;
 bool running = true;
 void siggg(int signum)
 {
 	printf("Shutting down server\n");
 
 	running = false;
-	closesocket(listenSocket);
+	closesocket(listener);
 	WSACleanup();
 
 	exit(0);
 }
 
-int main()
+int main(int argc, char* argv[])
 {
+	const char* port = argc > 1 ? argv[1] : DEFAULT_PORT;
+
 	printf("\n");
 	printf("Initializing WinSock...\t");
 
@@ -126,67 +123,49 @@ int main()
 	printf("Done\n");
 
 
-	//printf("Creating socket...\t");
-	//listenSocket = socket(AF_INET, SOCK_STREAM, 0);
-	//if (listenSocket == INVALID_SOCKET)
-	//{
-	//	printf("Failed\nSocket creation failed with error %d\n", WSAGetLastError());
-	//	return 1;
-	//}
-	//printf("Done\n");
-
-	// OLD STYLE !
-	//sockaddr_in soin;
-	//soin.sin_addr.s_addr = INADDR_ANY;
-	//soin.sin_family = AF_INET;
-	//soin.sin_port = htons(27015);
-
-	//if (bind(listenSocket, (sockaddr*)&soin, sizeof(soin)))
-	//{
-	//	printf("Socket binding failed with error %d\n", WSAGetLastError());
-	//	return 1;
-	//}
-
 	addrinfo hints;
-	memset(&hints, 0, sizeof(addrinfo));
-	hints.ai_family = AF_INET;
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_flags = AI_PASSIVE;
 
-	addrinfo* somethin;
-	int result = getaddrinfo(nullptr, "27015", &hints, &somethin);
+	addrinfo* resolved;
+	int result = getaddrinfo(nullptr, port, &hints, &resolved);
 	if (result)
 	{
 		printf("Failure somethin %d\n", result);
 		return 1;
 	}
 
-	addrinfo* t = somethin;
-	for (t = somethin; t != nullptr; t = t->ai_next)
+	addrinfo* node = resolved;
+	for (node = resolved; node != nullptr; node = node->ai_next)
 	{
-		printf("%d %d %d\n", t->ai_family, t->ai_socktype, t->ai_protocol);
-
-		listenSocket = socket(t->ai_family, t->ai_socktype,
-			t->ai_protocol);
-		if (listenSocket == SOCKET_ERROR)
-		{
-			printf("tried to socket but no\n");
+		SOCKET attempt = socket(node->ai_family, node->ai_socktype,
+			node->ai_protocol);
+		if (attempt == SOCKET_ERROR)
 			continue;
-		}
 
 		int option = 0;
-		setsockopt(listenSocket, IPPROTO_IPV6, IPV6_V6ONLY, (char*)&option, sizeof(int));
+		setsockopt(attempt, IPPROTO_IPV6, IPV6_V6ONLY, (char*)&option, sizeof(option));
 
-		if (bind(listenSocket, t->ai_addr, t->ai_addrlen) == SOCKET_ERROR)
+		if (bind(attempt, node->ai_addr, node->ai_addrlen))
 		{
-			closesocket(listenSocket);
+			closesocket(attempt);
 			continue;
 		}
 
+		listener = attempt;
 		break;
 	}
+	freeaddrinfo(resolved);
 
-	if (listen(listenSocket, SOMAXCONN))
+	if (listener == INVALID_SOCKET)
+	{
+		printf("No available sockets found, exiting\n");
+		return 1;
+	}
+
+	if (listen(listener, SOMAXCONN))
 	{
 		printf("Socket listen failed with error %d\n", WSAGetLastError());
 		return 1;
@@ -198,11 +177,11 @@ int main()
 	printf("Press Ctrl + C to stop the server\n");
 
 	SOCKET acceptSocket = INVALID_SOCKET;
-	sockaddr_storage acceptAddress;
+	sockaddr_storage acceptStorage;
+	int storageSize = sizeof(acceptStorage);
 	while (running)
 	{
-		int addrlen = sizeof(acceptAddress);
-		acceptSocket = accept(listenSocket, (sockaddr*)&acceptAddress, &addrlen);
+		acceptSocket = accept(listener, (sockaddr*)&acceptStorage, &storageSize);
 		if (acceptSocket == INVALID_SOCKET)
 		{
 			int lastError = WSAGetLastError();
@@ -213,20 +192,20 @@ int main()
 		}
 		else
 		{
-			char address[INET6_ADDRSTRLEN];
+			char address[INET6_ADDRSTRLEN] = "unknown address";
 
-			if (acceptAddress.ss_family == AF_INET)
+			sockaddr* socketAddress = nullptr;
+			if (acceptStorage.ss_family == AF_INET)
 			{
-				inet_ntop(AF_INET, (sockaddr_in*)&acceptAddress,
-					address, sizeof(address));
+				socketAddress = (sockaddr*)&(((sockaddr_in*)&acceptStorage)->sin_addr);
 			}
-			else if (acceptAddress.ss_family == AF_INET6)
+			else if (acceptStorage.ss_family == AF_INET6)
 			{
-				inet_ntop(AF_INET6, (sockaddr_in6*)&acceptAddress,
-					address, sizeof(address));
+				socketAddress = (sockaddr*)&(((sockaddr_in6*)&acceptStorage)->sin6_addr);
 			}
 
-			std::cout << address << "\n";
+			if (socketAddress)
+				inet_ntop(acceptStorage.ss_family, socketAddress, address, sizeof(address));
 
 			std::thread clientThread(HandleClient, acceptSocket, address);
 			clientThread.detach();
