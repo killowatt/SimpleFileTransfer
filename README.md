@@ -5,23 +5,20 @@ William Yates
 CS371-002
 
 # Info
-Simple file transfer application that can transfer any type of file,
-replicating filenames on both ends. The program should support even
-large files gigabytes in size.
+Simple file transfer application that can transfer any type of file, replicating filenames on both ends. The program should support even large files gigabytes in size.
 
 # Building
-Use the included solution file, and build using either Debug or Release mode
-Requires Visual Studio 2019
+Requires Visual Studio 2019. Use the included solution file, and build using either Debug or Release mode
 
 # Usage
-Server - ./server [port]
+Server - ./server [port]  
     You can run the server using just ./server, though it takes a port number
     as an optional argument
 
-Client - ./client file address [port]
-	file:		input file or path to send to the server
-	address:	the destination server to send to
-	port:		desired port to use when connecting, default 27015
+Client - ./client file address [port]  
+	file:		input file or path to send to the server  
+	address:	the destination server to send to  
+	port:		desired port to use when connecting, default 27015  
 
 # Technical
 
