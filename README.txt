@@ -5,10 +5,16 @@ William Yates
 CS371-002
 
 # Info
-Simple file transfer application that can transfer any type of file, replicating filenames on both ends. The program should support even large files gigabytes in size.
+Simple file transfer application that can transfer any type of file, replicating
+filenames on both ends.
+
+The program will attempt name resolution and supports both IPv4 and IPv6.
+
+The program should support even large files gigabytes in size.
 
 # Building
-Requires Visual Studio 2019. Use the included solution file, and build using either Debug or Release mode
+Requires Visual Studio 2019.
+Use the included solution file, and build using either Debug or Release mode
 
 # Usage
 Server - ./server [port]  
@@ -24,6 +30,10 @@ Client - ./client file address [port]
 
 
 # Notes
-files can be written at same time from server if multiple clients
+Nothing is preventing multiple clients from sending a file with the same name
+at the same time. This shouldn't crash the server, but there is no guarantee
+the server version of the file will not be corrupted.
 
-we could just look for a null terminator on receive instead of sending the size of the string
+It's possible that when sending the file name string, we could just look for a
+null terminator, instead of sending the size of the filename before the
+filename itself.
