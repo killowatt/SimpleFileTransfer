@@ -33,15 +33,16 @@ bool SendAll(SOCKET out, const char* buffer, int size)
 int main(int argc, char* argv[])
 {
 	// Ensure all arguments are provided, and if not, print usage statement
-	printf("\n");
+	std::cout << "\n";
 	if (argc < 3)
 	{
-		printf("Usage: %s file address [port]\n\n", argv[0]);
-		printf("Options:\n");
-		printf("\tfile:		input file or path to send to the server\n");
-		printf("\taddress:	the destination server to send to\n");
-		printf("\tport:		desired port to use when connecting, default %s\n",
-			DEFAULT_PORT);
+		std::cout <<
+			"Usage: " << argv[0] << " file address [port]\n\n"
+			"Options:\n"
+			"    file:\tinput file or path to send to the server\n"
+			"    address:\tthe destination server to send to\n"
+			"    port:\tdesired port to use when connecting, default "
+			<< DEFAULT_PORT;
 
 		return 0;
 	}
@@ -58,7 +59,7 @@ int main(int argc, char* argv[])
 	std::ifstream file(filePath, std::ios::binary | std::ios::ate);
 	if (!file)
 	{
-		printf("Failed to open file, exiting\n");
+		std::cout << "Failed to open file, exiting\n";
 		return 1;
 	}
 
@@ -74,22 +75,23 @@ int main(int argc, char* argv[])
 	/*
 	*	Initialize the WinSock socket library
 	*/
-	printf("Initializing WinSock...\t");
+	std::cout << "Initializing WinSock...\t";
 
 	WSADATA wsaData;
 	int wsaError = WSAStartup(MAKEWORD(2, 2), &wsaData);
 	if (wsaError)
 	{
-		printf("Failed\nFailed to initialze WinSock with error %d\n", wsaError);
+		std::cout << "Failed\nFailed to initialze WinSock with error "
+			<< wsaError << "\n";
 		return 1;
 	}
-	printf("Done\n");
+	std::cout << "Done\n";
 
 	/*
 	*	Attempt to connect to the specified destination
 	*/
 	// Set up the hint addrinfo
-	printf("Connecting...\t\t");
+	std::cout << "Connecting...\t\t";
 	addrinfo hints;
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = AF_UNSPEC;		// IPv4 or IPv6, we don't care
@@ -100,7 +102,8 @@ int main(int argc, char* argv[])
 	int result = getaddrinfo(address, port, &hints, &resolved);
 	if (result)
 	{
-		printf("Failed\nFailed to resolve address, exiting\n");
+		std::cout << "Failed\nFailed to resolve address with code "
+			<< result << "\n";
 		return 1;
 	}
 
@@ -132,10 +135,10 @@ int main(int argc, char* argv[])
 	// If we failed to connect, exit out
 	if (server == INVALID_SOCKET)
 	{
-		printf("Failed\nConnection failed, exiting\n");
+		std::cout << "Failed\nConnection failed, exiting\n";
 		return 1;
 	}
-	printf("Done\n");
+	std::cout << "Done\n";
 
 	/*
 	*	Send the name of our file to the server
@@ -145,7 +148,7 @@ int main(int argc, char* argv[])
 	if (!SendAll(server, (char*)&data, sizeof(data)))
 	{
 		// Make sure to disconnect and clean up if we fail
-		printf("Failed to send file name size\n");
+		std::cout << "Failed to send file name size\n";
 		closesocket(server);
 		WSACleanup();
 		return 1;
@@ -155,7 +158,7 @@ int main(int argc, char* argv[])
 	if (!SendAll(server, fileName.c_str(), (int)fileName.size() + 1))
 	{
 		// Make sure to disconnect and clean up if we fail
-		printf("Failed to send file name\n");
+		std::cout << "Failed to send file name\n";
 		closesocket(server);
 		WSACleanup();
 		return 1;
@@ -177,7 +180,8 @@ int main(int argc, char* argv[])
 		// Send all the bytes from the chunk we just read
 		if (!SendAll(server, buffer, (int)chunkSize))
 		{
-			printf("\nSending failed with error %d\n", WSAGetLastError());
+			std::cout << "\nSending failed with error " <<
+				WSAGetLastError() << "\n";
 			break;
 		}
 		totalBytes += chunkSize;
@@ -195,13 +199,12 @@ int main(int argc, char* argv[])
 		}
 	}
 	// Once we're done, print the total number of bytes sent for our user
-	std::cout << "\r" << totalBytes << "/" << fileSize << " bytes sent";
+	std::cout << "\r" << totalBytes << "/" << fileSize << " bytes sent\n";
 	std::cout.flush();
-	printf("\n");
 
 	// Disconnect and shut down WinSock
-	printf("File successfully sent!\n");
-	printf("Disconnecting\n");
+	std::cout << "File successfully sent!\n";
+	std::cout << "Disconnecting\n";
 	closesocket(server);
 
 	WSACleanup();

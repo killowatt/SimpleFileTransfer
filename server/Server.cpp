@@ -24,12 +24,13 @@ bool ReceiveAll(SOCKET receiver, char* buffer, int length)
 		int bytesReceived = recv(receiver, buffer, length, 0);
 		if (bytesReceived == 0)
 		{
-			printf("Client disconnected while reading from socket\n");
+			std::cout << "Client disconnected while reading from socket\n";
 			return false;
 		}
 		else if (bytesReceived == SOCKET_ERROR)
 		{
-			printf("Receiving from socket failed with error %d\n", WSAGetLastError());
+			std::cout << "Receiving from socket failed with error "
+				<< WSAGetLastError() << "\n";
 			return false;
 		}
 
@@ -48,7 +49,7 @@ void HandleClient(SOCKET client, std::string addressString)
 {
 	// For simplicity
 	const char* address = addressString.c_str();
-	printf("Client connected from %s\n", address);
+	std::cout << "Client connected from " << address << "\n";
 
 	/*
 	*	Receive the name of the file from the client
@@ -57,7 +58,8 @@ void HandleClient(SOCKET client, std::string addressString)
 	size_t msgSize = 0;
 	if (!ReceiveAll(client, (char*)&msgSize, sizeof(msgSize)))
 	{
-		printf("Failed to receive file name size from %s", address);
+		std::cout << "Failed to receive file name size from "
+			<< address << "\n";
 		closesocket(client);
 		return;
 	}
@@ -67,7 +69,8 @@ void HandleClient(SOCKET client, std::string addressString)
 	std::vector<char> fileNameBuffer(msgSize);
 	if (!ReceiveAll(client, fileNameBuffer.data(), (int)msgSize))
 	{
-		printf("Failed to receive file name from %s", address);
+		std::cout << "Failed to receive file name from "
+			<< address << "\n";
 		closesocket(client);
 		return;
 	}
@@ -79,15 +82,15 @@ void HandleClient(SOCKET client, std::string addressString)
 	/*
 	*	Attempt to open up the specified file for writing
 	*/
-	std::cout << "Receiving file \"" << fileName;
-	printf("\" from %s\n", address);
+	std::cout << "Receiving file \"" << fileName
+		<< "\" from " << address << "\n";
 
 	// Attempt to open the file in binary mode while also truncating
 	std::ofstream file(fileName, std::ios::binary | std::ios::out | std::ios::trunc);
 	if (file.fail())
 	{
 		// Don't forget to close the socket if things mess up here
-		printf("Failed to open file %s for writing\n", fileName.c_str());
+		std::cout << "Failed to open file " << fileName << " for writing\n";
 		closesocket(client);
 		return;
 	}
@@ -116,15 +119,15 @@ void HandleClient(SOCKET client, std::string addressString)
 		else if (bytesReceived == 0)
 		{
 			// The client disconnected, so stop writing
-			std::cout << "Received " << totalBytes;
-			printf(" bytes total from %s\n", address);
+			std::cout << "Received " << totalBytes
+				<< " bytes total from " << address << "\n";
 			break;
 		}
 		else if (bytesReceived == SOCKET_ERROR)
 		{
 			// There was an error, so stop writing
-			printf("Error receiving from %s with error %d\n",
-				address, WSAGetLastError());
+			std::cout << "Error receiving from " << address
+				<< " with error " << WSAGetLastError() << "\n";
 			break;
 		}
 	}
@@ -134,13 +137,14 @@ void HandleClient(SOCKET client, std::string addressString)
 	closesocket(client);
 }
 
+// We have these outside of main so the signal handler can modify them
 SOCKET listener = INVALID_SOCKET;
 bool running = true;
 
 // Handles interrupts once we enter our main loop
 void SignalHandler(int signum)
 {
-	printf("Shutting down server\n");
+	std::cout << "Shutting down server\n";
 
 	// Close the listener socket, cleanup WinSock, and exit
 	running = false;
@@ -158,21 +162,23 @@ int main(int argc, char* argv[])
 	/*
 	*	Initialize the WinSock socket library
 	*/
-	printf("\nInitializing WinSock...\t");
+	std::cout << "\nInitializing WinSock...\t";
 
 	WSADATA wsaData;
 	int wsaError = WSAStartup(MAKEWORD(2, 2), &wsaData);
 	if (wsaError)
 	{
-		printf("Failed\nFailed to initialze WinSock with error %d\n", wsaError);
+		std::cout << "Failed\nFailed to initialze WinSock with error "
+			<< wsaError << "\n";
 		return 1;
 	}
-	printf("Done\n");
+	std::cout << "Done\n";
 
 	/*
 	*	Attempt to bind a socket so we can start listening
 	*/
 	// Set up the hint addrinfo
+	std::cout << "Creating socket...\t";
 	addrinfo hints;
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = AF_UNSPEC;		// IPv4 or IPv6, we don't care
@@ -184,12 +190,12 @@ int main(int argc, char* argv[])
 	int result = getaddrinfo(nullptr, port, &hints, &resolved);
 	if (result)
 	{
-		printf("Failure somethin %d\n", result);
+		std::cout << "Failed\nFailed to resolve address with code "
+			<< result << "\n";
 		return 1;
 	}
 
 	// Iterate through the linked list, try to create and bind sockets along the way
-	printf("Creating socket...\t");
 	addrinfo* node = resolved;
 	for (node = resolved; node != nullptr; node = node->ai_next)
 	{
@@ -221,10 +227,10 @@ int main(int argc, char* argv[])
 	// If we failed to create a socket, error and exit out
 	if (listener == INVALID_SOCKET)
 	{
-		printf("Failed\nNo available sockets found, exiting\n");
+		std::cout << "Failed\nNo available sockets found, exiting\n";
 		return 1;
 	}
-	printf("Done\n");
+	std::cout << "Done\n";
 
 	/*
 	*	Start listening on our socket and accept incoming connections
@@ -232,15 +238,16 @@ int main(int argc, char* argv[])
 	// Try to start listening on our new socket
 	if (listen(listener, SOMAXCONN))
 	{
-		printf("Socket listen failed with error %d\n", WSAGetLastError());
+		std::cout << "Socket listen failed with error ";
+		std::cout << WSAGetLastError() << "\n";
 		return 1;
 	}
 
 	// Setup interrupt signal handler for main loop below
 	std::signal(SIGINT, SignalHandler);
 
-	printf("Server is now listening on port %s\n", port);
-	printf("Press Ctrl + C to stop the server\n\n");
+	std::cout << "Server is now listening on port " << port << "\n";
+	std::cout << "Press Ctrl + C to stop the server\n\n";
 
 	// Main loop, accept any client connections and start threads for them
 	SOCKET acceptSocket = INVALID_SOCKET;
@@ -254,8 +261,11 @@ int main(int argc, char* argv[])
 		{
 			int lastError = WSAGetLastError();
 			// Suppress annoying error when closing the socket
-			if (lastError != WSAEINTR)
-				printf("Failed to accept connection with error %d\n", WSAGetLastError());
+			if (true || lastError != WSAEINTR)
+			{
+				std::cout << "Failed to accept connection with error ";
+				std::cout << WSAGetLastError() << "\n";
+			}
 			continue;
 		}
 

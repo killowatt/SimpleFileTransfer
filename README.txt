@@ -37,3 +37,6 @@ the server version of the file will not be corrupted.
 It's possible that when sending the file name string, we could just look for a
 null terminator, instead of sending the size of the filename before the
 filename itself.
+
+The source tends to mix use of cout and printf, because in my opinion most of
+the time printf is cleaner and shorter, however sometimes cout is preferable.
