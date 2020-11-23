@@ -49,7 +49,6 @@ int main(int argc, char* argv[])
 	/*
 	*	Attempt to open our file and get relevant information
 	*/
-
 	// Get our two main arguments and optional argument
 	const char* filePath = argv[1];
 	const char* address = argv[2];
@@ -89,7 +88,6 @@ int main(int argc, char* argv[])
 	/*
 	*	Attempt to connect to the specified destination
 	*/
-
 	// Set up the hint addrinfo
 	printf("Connecting...\t\t");
 	addrinfo hints;
@@ -102,7 +100,7 @@ int main(int argc, char* argv[])
 	int result = getaddrinfo(address, port, &hints, &resolved);
 	if (result)
 	{
-		printf("Failure somethin %d\n", result);
+		printf("Failed\nFailed to resolve address, exiting\n");
 		return 1;
 	}
 
@@ -142,7 +140,6 @@ int main(int argc, char* argv[])
 	/*
 	*	Send the name of our file to the server
 	*/
-
 	// Send the size of the filename
 	size_t data = htonll(fileName.size() + 1);
 	if (!SendAll(server, (char*)&data, sizeof(data)))

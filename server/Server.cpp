@@ -53,7 +53,6 @@ void HandleClient(SOCKET client, std::string addressString)
 	/*
 	*	Receive the name of the file from the client
 	*/
-
 	// Receive the size of the filename
 	size_t msgSize = 0;
 	if (!ReceiveAll(client, (char*)&msgSize, sizeof(msgSize)))
@@ -80,8 +79,8 @@ void HandleClient(SOCKET client, std::string addressString)
 	/*
 	*	Attempt to open up the specified file for writing
 	*/
-	std::cout << "Receiving file " << fileName;
-	printf(" from %s\n", address);
+	std::cout << "Receiving file \"" << fileName;
+	printf("\" from %s\n", address);
 
 	// Attempt to open the file in binary mode while also truncating
 	std::ofstream file(fileName, std::ios::binary | std::ios::out | std::ios::trunc);
@@ -96,7 +95,6 @@ void HandleClient(SOCKET client, std::string addressString)
 	/*
 	*	Receive all of the file's bytes from the client
 	*/
-
 	// Create our buffer and zero out the bytes
 	char buffer[FILE_BUFFER_SIZE];
 	memset(buffer, 0, sizeof(buffer));
@@ -174,7 +172,6 @@ int main(int argc, char* argv[])
 	/*
 	*	Attempt to bind a socket so we can start listening
 	*/
-
 	// Set up the hint addrinfo
 	addrinfo hints;
 	memset(&hints, 0, sizeof(hints));
@@ -232,7 +229,6 @@ int main(int argc, char* argv[])
 	/*
 	*	Start listening on our socket and accept incoming connections
 	*/
-
 	// Try to start listening on our new socket
 	if (listen(listener, SOMAXCONN))
 	{
@@ -243,7 +239,7 @@ int main(int argc, char* argv[])
 	// Setup interrupt signal handler for main loop below
 	std::signal(SIGINT, SignalHandler);
 
-	printf("Server is now accepting connections\n");
+	printf("Server is now listening on port %s\n", port);
 	printf("Press Ctrl + C to stop the server\n\n");
 
 	// Main loop, accept any client connections and start threads for them
